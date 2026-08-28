@@ -61,6 +61,19 @@
     <script>
         // 1. Initialize the Map
         const map = L.map('map').setView([37.0, -91.5], 18);
+        // Automatically show plots only when zoomed in close enough
+        map.on('zoomend', function() {
+            const currentZoom = map.getZoom();
+            if (currentZoom >= 19) {
+                if (!map.hasLayer(plotsLayerGroup)) {
+                    map.addLayer(plotsLayerGroup);
+                }
+            } else {
+                if (map.hasLayer(plotsLayerGroup)) {
+                    map.removeLayer(plotsLayerGroup);
+                }
+            }
+        });
 
         // 2. Add Satellite Imagery (Esri World Imagery)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -69,7 +82,7 @@
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-eGP, and the GIS User Community'
         }).addTo(map);
 
-        let plotsLayerGroup = L.layerGroup().addTo(map);
+        let plotsLayerGroup = L.layerGroup();
 
         // 3. Load Lots (Background Boundaries)
         fetch('lots.geojson')
