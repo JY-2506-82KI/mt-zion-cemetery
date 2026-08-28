@@ -186,27 +186,32 @@
 
     // 4. Load Plots (Interactive Burial Records)
     // Zoom watcher to manage text clutter and plot visibility based on checkbox & zoom
+    // Zoom watcher now *only* manages lot label clutter (plots stay visible based purely on checkbox)
     map.on('zoomend', function() {
         const currentZoom = map.getZoom();
-        const plotsChecked = document.getElementById('toggle-plots').checked;
-        
-        // Plots show only when zoomed in close AND the checkbox is checked
-        if (currentZoom >= 21 && plotsChecked) {
-            if (!map.hasLayer(plotsLayerGroup)) {
-                map.addLayer(plotsLayerGroup);
-            }
-        } else {
-            if (map.hasLayer(plotsLayerGroup)) {
-                map.removeLayer(plotsLayerGroup);
-            }
-        }
-
-        // Lot label fade out when zoomed out (< 20)
         const mapElement = document.getElementById('map');
+        
         if (currentZoom < 20) {  
             mapElement.classList.add('hide-lot-labels');
         } else {
             mapElement.classList.remove('hide-lot-labels');
+        }
+    });
+
+    // Header Toggle Event Listeners
+    document.getElementById('toggle-lots').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            if (lotsLayer) map.addLayer(lotsLayer);
+        } else {
+            if (lotsLayer) map.removeLayer(lotsLayer);
+        }
+    });
+
+    document.getElementById('toggle-plots').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            map.addLayer(plotsLayerGroup); // Shows immediately at any zoom level
+        } else {
+            map.removeLayer(plotsLayerGroup);
         }
     });
 
