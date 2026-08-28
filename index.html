@@ -45,6 +45,7 @@
     }
 
     /* 👇 Paste the new lot label style right here 👇 */
+    /* Base style for lot numbers */
     .lot-label {
         background: transparent !important;
         border: none !important;
@@ -53,34 +54,43 @@
         font-weight: bold;
         font-size: 11px;
         text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
+        transition: opacity 0.2s ease-in-out;
     }
-        /* Hides lot labels when zoomed out too far */
-#map.hide-lot-labels .lot-label {
-    display: none !important;
-}
+
+    /* Smoothly hides lot labels when zoomed out */
+    #map.hide-lot-labels .lot-label {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
 </style>
 </head>
 <body>
 
     <div id="header">
-        <h2>Mt. Zion Cemetery Directory</h2>
-        <div id="search-container">
-            <input type="text" id="search-input" placeholder="Search by name (e.g. John Doe)...">
-        </div>
+    <div style="font-size: 16px; font-weight: bold;">Mt. Zion Cemetery Map</div>
+    <div style="display: flex; gap: 15px; align-items: center;">
+        <!-- New Layer Toggles -->
+        <label style="font-size: 13px; cursor: pointer; color: white;">
+            <input type="checkbox" id="toggle-lots" checked> Lots
+        </label>
+        <label style="font-size: 13px; cursor: pointer; color: white;">
+            <input type="checkbox" id="toggle-plots"> Plots
+        </label>
+        <!-- Your Search Input -->
+        <input type="text" id="search-input" placeholder="Search burial records...">
     </div>
+</div>
 
     <div id="map"></div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
     // 1. Initialize the Map
     const map = L.map('map').setView([37.0, -91.5], 18);
 
-    // 2. Add Satellite Imagery (Esri World Imagery)
+    // 2. Add Satellite Imagery
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 22,
         maxNativeZoom: 19,
@@ -88,14 +98,15 @@
     }).addTo(map);
 
     let plotsLayerGroup = L.layerGroup();
+    let lotsLayer; 
 
-    // Combined zoom watcher for plots and lot labels
+    // Zoom watcher to manage text clutter and plot visibility
     map.on('zoomend', function() {
         const currentZoom = map.getZoom();
         
-        // Manage Plots visibility (shows only when super close)
+        // Plots visibility toggle at high zoom
         if (currentZoom >= 21) {
-            if (!map.hasLayer(plotsLayerGroup)) {
+            if (document.getElementById('toggle-plots').checked && !map.hasLayer(plotsLayerGroup)) {
                 map.addLayer(plotsLayerGroup);
             }
         } else {
@@ -104,36 +115,61 @@
             }
         }
 
-        // Manage Lot Label text clutter (hides text when zoomed out)
+        // Lot label fade out when zoomed out
         const mapElement = document.getElementById('map');
-        if (currentZoom < 20) {  
+        if (currentZoom < 18) {  
             mapElement.classList.add('hide-lot-labels');
         } else {
             mapElement.classList.remove('hide-lot-labels');
         }
     });
 
-    // 3. Load Lots (Background Boundaries) with clean labels from 'lot_no'
+    // 3. Load Lots (Background Boundaries with dynamic status coloring & hover ownership)
     fetch('lots.geojson')
         .then(response => response.json())
         .then(data => {
-            const lotsLayer = L.geoJSON(data, {
-                style: {
-                    color: "#f39c12",
-                    weight: 1.5,
-                    fillOpacity: 0.1
+            lotsLayer = L.geoJSON(data, {
+                style: function(feature) {
+                    const props = feature.properties;
+                    const status = (props.status || "").toLowerCase();
+                    const hasName = props.name && props.name.trim() !== "";
+
+                    // If status says available/for sale or name is blank -> Green
+                    // Otherwise (Sold / Owned) -> Orange
+                    if (status.includes('available') || status.includes('for sale') || !hasName) {
+                        return { color: "#2ecc71", weight: 1.5, fillColor: "#2ecc71", fillOpacity: 0.2 };
+                    } else {
+                        return { color: "#f39c12", weight: 1.5, fillColor: "#f39c12", fillOpacity: 0.1 };
+                    }
                 },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
-                    const lotLabelText = props.lot_no || ''; 
+                    const lotNo = props.lot_no || ''; 
+                    const ownerName = props.name ? props.name.trim() : '';
+                    const lotStatus = props.status ? props.status.trim() : (ownerName ? 'Sold' : 'Available');
 
-                    if (lotLabelText) {
-                        layer.bindTooltip(lotLabelText, {
+                    // Permanent Center Label for Lot Number
+                    if (lotNo) {
+                        layer.bindTooltip(lotNo, {
                             permanent: true,
                             direction: 'center',
                             className: 'lot-label'
                         });
                     }
+
+                    // Hover tooltip for quick ownership inspection
+                    const hoverText = ownerName ? `Lot ${lotNo} — Owner: ${ownerName}` : `Lot ${lotNo} — Available (${lotStatus})`;
+                    layer.bindTooltip(hoverText, { direction: 'top', sticky: true });
+
+                    // Hover styling highlight
+                    layer.on({
+                        mouseover: function(e) {
+                            e.target.setStyle({ weight: 2.5, fillOpacity: 0.4 });
+                        },
+                        mouseout: function(e) {
+                            lotsLayer.resetStyle(e.target);
+                        }
+                    });
                 }
             }).addTo(map);
 
@@ -142,23 +178,16 @@
             }
         }).catch(err => console.log("Lots geojson optional load note:", err));
 
-    // 4. Load Plots (Interactive Data Layers)
-    let plotLayers = {}; // To help search find them easily
-
+    // 4. Load Plots (Interactive Burial Records)
+    let plotLayers = {}; 
     fetch('plots.geojson')
         .then(response => response.json())
         .then(data => {
             const geoJsonLayer = L.geoJSON(data, {
-                style: {
-                    color: "#ffffff",
-                    weight: 1,
-                    fillColor: "#3498db",
-                    fillOpacity: 0.5
-                },
+                style: { color: "#ffffff", weight: 1, fillColor: "#3498db", fillOpacity: 0.5 },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
                     const fullName = props.full_name || '';
-                    
                     if (fullName) {
                         plotLayers[fullName.toLowerCase()] = layer;
                     }
@@ -170,23 +199,31 @@
                         <p><strong>Dates:</strong> ${props.birth_date || '?'} – ${props.death_date || '?'}</p>
                         <p><strong>Lot Owner:</strong> ${props.lot_owner || 'N/A'}</p>
                         <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
-                        <p><strong>Obituary / Notes:</strong><br>${props.obituary || props.notes || 'No records added yet.'}</p>
+                        <p><strong>Notes:</strong><br>${props.obituary || props.notes || 'No records added yet.'}</p>
                     `;
                     layer.bindPopup(popupContent);
-
-                    layer.on({
-                        mouseover: function(e) {
-                            e.target.setStyle({ fillColor: "#e74c3c", fillOpacity: 0.7 });
-                        },
-                        mouseout: function(e) {
-                            geoJsonLayer.resetStyle(e.target);
-                        }
-                    });
                 }
-            }).addTo(plotsLayerGroup);
+            });
         }).catch(err => console.log("Plots geojson optional load note:", err));
 
-    // 5. Working Search Bar Logic
+    // 5. Header Toggle Event Listeners
+    document.getElementById('toggle-lots').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            if (lotsLayer) map.addLayer(lotsLayer);
+        } else {
+            if (lotsLayer) map.removeLayer(lotsLayer);
+        }
+    });
+
+    document.getElementById('toggle-plots').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            map.addLayer(plotsLayerGroup);
+        } else {
+            map.removeLayer(plotsLayerGroup);
+        }
+    });
+
+    // 6. Search Bar Logic
     document.getElementById('search-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             const searchTerm = e.target.value.toLowerCase().trim();
@@ -196,6 +233,9 @@
                 layer.eachLayer(function(subLayer) {
                     const name = (subLayer.feature.properties.full_name || "").toLowerCase();
                     if (name.includes(searchTerm)) {
+                        document.getElementById('toggle-plots').checked = true;
+                        if (!map.hasLayer(plotsLayerGroup)) map.addLayer(plotsLayerGroup);
+
                         map.fitBounds(subLayer.getBounds(), { maxZoom: 21 });
                         subLayer.openPopup();
                         found = true;
