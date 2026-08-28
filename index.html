@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mt. Zion Cemetery Map & Records</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+    }
+    #header {
+        background: #2c3e50;
+        color: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        z-index: 2000;
+    }
+    
+    /* Search Box & Autocomplete Dropdown Container */
+    .search-container {
+        position: relative;
+    }
+    #search-input {
+        padding: 8px;
+        width: 280px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+    #search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        color: #333;
+        border-radius: 0 0 4px 4px;
+        border: 1px solid #ccc;
+        border-top: none;
+        max-height: 250px;
+        overflow-y: auto;
+        display: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        z-index: 3000;
+    }
+    .search-result-item {
+        padding: 8px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+    .search-result-item:hover {
+        background: #f1f2f6;
+    }
+    .search-result-item strong {
+        color: #2980b9;
+    }
+
+    #map {
+        flex-grow: 1;
+        width: 100%;
+        z-index: 1;
+    }
+    .leaflet-popup-content h3 {
+        margin: 0 0 5px 0;
+        color: #2c3e50;
+    }
+    .leaflet-popup-content p {
+        margin: 4px 0;
+        font-size: 13px;
+    }
+
+    /* Base style for lot numbers */
+    .lot-label {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 11px;
+        text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
+        transition: opacity 0.2s ease-in-out;
+    }
+
+    /* Smoothly hides lot labels when zoomed out past 20 */
+    #map.hide-lot-labels .lot-label {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+</style>
+</head>
+<body>
+
+    <div id="header">
+        <div style="font-size: 16px; font-weight: bold;">Mt. Zion Cemetery Map</div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <!-- Layer Toggles -->
+            <label style="font-size: 13px; cursor: pointer; color: white;">
+                <input type="checkbox" id="toggle-lots" checked> Lots
+            </label>
+            <label style="font-size: 13px; cursor: pointer; color: white;">
+                <input type="checkbox" id="toggle-plots"> Plots
+            </label>
+            <!-- Search Input with Dropdown Container -->
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Search lots or burial records...">
+                <div id="search-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    // 1. Initialize the Map
+    const map = L.map('map').setView([37.0, -91.5], 18);
+
+    // 2. Add Satellite Imagery
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 22,
+        maxNativeZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-eGP, and the GIS User Community'
+    }).addTo(map);
+
+    let plotsLayerGroup = L.layerGroup();
+    let lotsLayer; 
+    let searchIndex = []; // Stores combined searchable items for autocomplete
+
+    // Zoom watcher strictly for lot label clutter control (zoom < 20 hides lot numbers)
+    map.on('zoomend', function() {
+        const currentZoom = map.getZoom();
+        const mapElement = document.getElementById('map');
+        
+        if (currentZoom < 20) {  
+            mapElement.classList.add('hide-lot-labels');
+        } else {
+            mapElement.classList.remove('hide-lot-labels');
+        }
+    });
+
+    // 3. Load Lots (Background Boundaries + Indexing into Search)
+    fetch('lots.geojson')
+        .then(response => response.json())
+        .then(data => {
+            lotsLayer = L.geoJSON(data, {
+                style: function(feature) {
+                    const props = feature.properties;
+                    const status = (props.status || "").toLowerCase();
+                    const hasName = props.name && props.name.trim() !== "";
+
+                    if (status.includes('available') || status.includes('for sale') || !hasName) {
+                        return { color: "#2ecc71", weight: 1.5, fillColor: "#2ecc71", fillOpacity: 0.2 };
+                    } else {
+                        return { color: "#f39c12", weight: 1.5, fillColor: "#f39c12", fillOpacity: 0.1 };
+                    }
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties;
+                    const lotNo = props.lot_no || ''; 
+                    const ownerName = props.name ? props.name.trim() : '';
+                    const lotStatus = props.status ? props.status.trim() : (ownerName ? 'Sold' : 'Available');
+
+                    if (lotNo) {
+                        layer.bindTooltip(lotNo, {
+                            permanent: true,
+                            direction: 'center',
+                            className: 'lot-label'
+                        });
+                    }
+
+                    const popupContent = `
+                        <div style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
+                            <strong>Lot Number:</strong> ${lotNo}<br>
+                            <strong>Status:</strong> <span style="color: ${ownerName ? '#e67e22' : '#27ae60'}; font-weight: bold;">${lotStatus}</span><br>
+                            <strong>Owner / Name:</strong> ${ownerName || 'None (Open / Available)'}
+                        </div>
+                    `;
+
+                    layer.on({
+                        mouseover: function(e) {
+                            e.target.setStyle({ weight: 2.5, fillOpacity: 0.4 });
+                            layer.bindPopup(popupContent, { offset: [0, -10] }).openPopup(e.latlng);
+                        },
+                        mouseout: function(e) {
+                            lotsLayer.resetStyle(e.target);
+                            layer.closePopup();
+                        }
+                    });
+
+                    // Add Lot to Search Index
+                    if (lotNo || ownerName) {
+                        searchIndex.push({
+                            type: 'Lot',
+                            display: `📍 Lot ${lotNo} — Owner: ${ownerName || 'Available'}`,
+                            searchText: `${lotNo} ${ownerName}`.toLowerCase(),
+                            layer: layer,
+                            zoomLevel: 19
+                        });
+                    }
+                }
+            }).addTo(map);
+
+            if (data.features.length > 0) {
+                map.fitBounds(lotsLayer.getBounds());
+            }
+        }).catch(err => console.log("Lots geojson optional load note:", err));
+
+    // 4. Load Plots (Interactive Burial Records + Indexing into Search)
+    fetch('plots.geojson')
+        .then(response => response.json())
+        .then(data => {
+            const geoJsonLayer = L.geoJSON(data, {
+                style: { color: "#ffffff", weight: 1, fillColor: "#3498db", fillOpacity: 0.5 },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties;
+                    const fullName = props.full_name || '';
+                    const lotNumber = props.lot_number || '';
+
+                    const popupContent = `
+                        <h3>${fullName || 'Unassigned / Available'}</h3>
+                        <p><strong>Plot ID:</strong> ${props.plot_id || 'N/A'}</p>
+                        <p><strong>Lot Number:</strong> ${lotNumber || 'N/A'}</p>
+                        <p><strong>Dates:</strong> ${props.birth_date || '?'} – ${props.death_date || '?'}</p>
+                        <p><strong>Lot Owner:</strong> ${props.lot_owner || 'N/A'}</p>
+                        <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
+                        <p><strong>Notes:</strong><br>${props.obituary || props.notes || 'No records added yet.'}</p>
+                    `;
+                    layer.bindPopup(popupContent);
+
+                    // Add Burial Plot to Search Index
+                    if (fullName) {
+                        searchIndex.push({
+                            type: 'Burial Record',
+                            display: `🪦 Burial: ${fullName} (Lot ${lotNumber || 'N/A'})`,
+                            searchText: `${fullName} ${lotNumber} ${props.lot_owner || ''}`.toLowerCase(),
+                            layer: layer,
+                            zoomLevel: 21,
+                            isPlot: true
+                        });
+                    }
+                }
+            }).addTo(plotsLayerGroup); 
+        }).catch(err => console.log("Plots geojson optional load note:", err));
+
+    // 5. Header Toggle Event Listeners
+    document.getElementById('toggle-lots').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            if (lotsLayer) map.addLayer(lotsLayer);
+        } else {
+            if (lotsLayer) map.removeLayer(lotsLayer);
+        }
+    });
+
+    document.getElementById('toggle-plots').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            map.addLayer(plotsLayerGroup);
+        } else {
+            map.removeLayer(plotsLayerGroup);
+        }
+    });
+
+    // 6. Autocomplete & Search Bar Logic
+    const searchInput = document.getElementById('search-input');
+    const resultsContainer = document.getElementById('search-results');
+
+    searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase().trim();
+        resultsContainer.innerHTML = '';
+        
+        if (query.length === 0) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        // Filter search index for matches
+        const matches = searchIndex.filter(item => item.searchText.includes(query)).slice(0, 15); // limit to 15 suggestions
+
+        if (matches.length > 0) {
+            resultsContainer.style.display = 'block';
+            matches.forEach(match => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.innerHTML = match.display;
+                
+                // Click handler for suggestion item
+                div.addEventListener('click', function() {
+                    searchInput.value = '';
+                    resultsContainer.style.display = 'none';
+
+                    // If it's a plot, make sure the plots toggle is checked and layer is visible
+                    if (match.isPlot) {
+                        document.getElementById('toggle-plots').checked = true;
+                        if (!map.hasLayer(plotsLayerGroup)) {
+                            map.addLayer(plotsLayerGroup);
+                        }
+                    }
+
+                    // Zoom and open popup
+                    map.fitBounds(match.layer.getBounds(), { maxZoom: match.zoomLevel });
+                    match.layer.openPopup();
+                });
+
+                resultsContainer.appendChild(div);
+            });
+        } else {
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            resultsContainer.style.display = 'none';
+        }
+    });
+    </script>
+</body>
+</html>
