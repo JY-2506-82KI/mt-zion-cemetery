@@ -44,7 +44,6 @@
         font-size: 13px;
     }
 
-    /* 👇 Paste the new lot label style right here 👇 */
     /* Base style for lot numbers */
     .lot-label {
         background: transparent !important;
@@ -57,7 +56,7 @@
         transition: opacity 0.2s ease-in-out;
     }
 
-    /* Smoothly hides lot labels when zoomed out */
+    /* Smoothly hides lot labels when zoomed out past 20 */
     #map.hide-lot-labels .lot-label {
         opacity: 0;
         visibility: hidden;
@@ -68,19 +67,19 @@
 <body>
 
     <div id="header">
-    <div style="font-size: 16px; font-weight: bold;">Mt. Zion Cemetery Map</div>
-    <div style="display: flex; gap: 15px; align-items: center;">
-        <!-- New Layer Toggles -->
-        <label style="font-size: 13px; cursor: pointer; color: white;">
-            <input type="checkbox" id="toggle-lots" checked> Lots
-        </label>
-        <label style="font-size: 13px; cursor: pointer; color: white;">
-            <input type="checkbox" id="toggle-plots"> Plots
-        </label>
-        <!-- Your Search Input -->
-        <input type="text" id="search-input" placeholder="Search burial records...">
+        <div style="font-size: 16px; font-weight: bold;">Mt. Zion Cemetery Map</div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <!-- Layer Toggles -->
+            <label style="font-size: 13px; cursor: pointer; color: white;">
+                <input type="checkbox" id="toggle-lots" checked> Lots
+            </label>
+            <label style="font-size: 13px; cursor: pointer; color: white;">
+                <input type="checkbox" id="toggle-plots"> Plots
+            </label>
+            <!-- Search Input -->
+            <input type="text" id="search-input" placeholder="Search burial records...">
+        </div>
     </div>
-</div>
 
     <div id="map"></div>
 
@@ -100,23 +99,11 @@
     let plotsLayerGroup = L.layerGroup();
     let lotsLayer; 
 
-    // Zoom watcher to manage text clutter and plot visibility
+    // Zoom watcher strictly for lot label clutter control (zoom < 20 hides lot numbers)
     map.on('zoomend', function() {
         const currentZoom = map.getZoom();
-        
-        // Plots visibility toggle at high zoom
-        if (currentZoom >= 21) {
-            if (document.getElementById('toggle-plots').checked && !map.hasLayer(plotsLayerGroup)) {
-                map.addLayer(plotsLayerGroup);
-            }
-        } else {
-            if (map.hasLayer(plotsLayerGroup)) {
-                map.removeLayer(plotsLayerGroup);
-            }
-        }
-
-        // Lot label fade out when zoomed out
         const mapElement = document.getElementById('map');
+        
         if (currentZoom < 20) {  
             mapElement.classList.add('hide-lot-labels');
         } else {
@@ -147,7 +134,7 @@
                     const ownerName = props.name ? props.name.trim() : '';
                     const lotStatus = props.status ? props.status.trim() : (ownerName ? 'Sold' : 'Available');
 
-                    // 1. Permanent Center Label (Just the lot number, like before)
+                    // Permanent Center Label for Lot Number
                     if (lotNo) {
                         layer.bindTooltip(lotNo, {
                             permanent: true,
@@ -156,7 +143,7 @@
                         });
                     }
 
-                    // 2. Clean Hover Popup Box for Ownership & Availability
+                    // Hover Popup Box for Ownership & Availability
                     const popupContent = `
                         <div style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
                             <strong>Lot Number:</strong> ${lotNo}<br>
@@ -168,7 +155,6 @@
                     layer.on({
                         mouseover: function(e) {
                             e.target.setStyle({ weight: 2.5, fillOpacity: 0.4 });
-                            // Open a mini popup box at the mouse location
                             layer.bindPopup(popupContent, { offset: [0, -10] }).openPopup(e.latlng);
                         },
                         mouseout: function(e) {
@@ -185,37 +171,6 @@
         }).catch(err => console.log("Lots geojson optional load note:", err));
 
     // 4. Load Plots (Interactive Burial Records)
-    // Zoom watcher to manage text clutter and plot visibility based on checkbox & zoom
-    // Zoom watcher now *only* manages lot label clutter (plots stay visible based purely on checkbox)
-    map.on('zoomend', function() {
-        const currentZoom = map.getZoom();
-        const mapElement = document.getElementById('map');
-        
-        if (currentZoom < 20) {  
-            mapElement.classList.add('hide-lot-labels');
-        } else {
-            mapElement.classList.remove('hide-lot-labels');
-        }
-    });
-
-    // Header Toggle Event Listeners
-    document.getElementById('toggle-lots').addEventListener('change', function(e) {
-        if (e.target.checked) {
-            if (lotsLayer) map.addLayer(lotsLayer);
-        } else {
-            if (lotsLayer) map.removeLayer(lotsLayer);
-        }
-    });
-
-    document.getElementById('toggle-plots').addEventListener('change', function(e) {
-        if (e.target.checked) {
-            map.addLayer(plotsLayerGroup); // Shows immediately at any zoom level
-        } else {
-            map.removeLayer(plotsLayerGroup);
-        }
-    });
-
-    // 4. Load Plots (Interactive Burial Records) - NOW PROPERLY LINKED TO plotsLayerGroup
     let plotLayers = {}; 
     fetch('plots.geojson')
         .then(response => response.json())
@@ -240,28 +195,8 @@
                     `;
                     layer.bindPopup(popupContent);
                 }
-            }).addTo(plotsLayerGroup); // 👈 Added back so the group actually holds the shapes!
+            }).addTo(plotsLayerGroup); 
         }).catch(err => console.log("Plots geojson optional load note:", err));
-
-    // 5. Header Toggle Event Listeners
-    document.getElementById('toggle-lots').addEventListener('change', function(e) {
-        if (e.target.checked) {
-            if (lotsLayer) map.addLayer(lotsLayer);
-        } else {
-            if (lotsLayer) map.removeLayer(lotsLayer);
-        }
-    });
-
-    document.getElementById('toggle-plots').addEventListener('change', function(e) {
-        if (e.target.checked) {
-            // If checked and we are already zoomed in close, show them immediately
-            if (map.getZoom() >= 21) {
-                map.addLayer(plotsLayerGroup);
-            }
-        } else {
-            map.removeLayer(plotsLayerGroup);
-        }
-    });
 
     // 5. Header Toggle Event Listeners
     document.getElementById('toggle-lots').addEventListener('change', function(e) {
@@ -305,6 +240,6 @@
             }
         }
     });
-</script>
+    </script>
 </body>
 </html>
