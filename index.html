@@ -124,7 +124,7 @@
         }
     });
 
-    // 3. Load Lots (Background Boundaries with dynamic status coloring & hover ownership)
+    // 3. Load Lots (Background Boundaries with status coloring, permanent numbers, and hover popups)
     fetch('lots.geojson')
         .then(response => response.json())
         .then(data => {
@@ -134,8 +134,7 @@
                     const status = (props.status || "").toLowerCase();
                     const hasName = props.name && props.name.trim() !== "";
 
-                    // If status says available/for sale or name is blank -> Green
-                    // Otherwise (Sold / Owned) -> Orange
+                    // Green for available/unnamed, Orange for sold/owned
                     if (status.includes('available') || status.includes('for sale') || !hasName) {
                         return { color: "#2ecc71", weight: 1.5, fillColor: "#2ecc71", fillOpacity: 0.2 };
                     } else {
@@ -148,7 +147,7 @@
                     const ownerName = props.name ? props.name.trim() : '';
                     const lotStatus = props.status ? props.status.trim() : (ownerName ? 'Sold' : 'Available');
 
-                    // Permanent Center Label for Lot Number
+                    // 1. Permanent Center Label (Just the lot number, like before)
                     if (lotNo) {
                         layer.bindTooltip(lotNo, {
                             permanent: true,
@@ -157,17 +156,24 @@
                         });
                     }
 
-                    // Hover tooltip for quick ownership inspection
-                    const hoverText = ownerName ? `Lot ${lotNo} — Owner: ${ownerName}` : `Lot ${lotNo} — Available (${lotStatus})`;
-                    layer.bindTooltip(hoverText, { direction: 'top', sticky: true });
+                    // 2. Clean Hover Popup Box for Ownership & Availability
+                    const popupContent = `
+                        <div style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
+                            <strong>Lot Number:</strong> ${lotNo}<br>
+                            <strong>Status:</strong> <span style="color: ${ownerName ? '#e67e22' : '#27ae60'}; font-weight: bold;">${lotStatus}</span><br>
+                            <strong>Owner / Name:</strong> ${ownerName || 'None (Open / Available)'}
+                        </div>
+                    `;
 
-                    // Hover styling highlight
                     layer.on({
                         mouseover: function(e) {
                             e.target.setStyle({ weight: 2.5, fillOpacity: 0.4 });
+                            // Open a mini popup box at the mouse location
+                            layer.bindPopup(popupContent, { offset: [0, -10] }).openPopup(e.latlng);
                         },
                         mouseout: function(e) {
                             lotsLayer.resetStyle(e.target);
+                            layer.closePopup();
                         }
                     });
                 }
