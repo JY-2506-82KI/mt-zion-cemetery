@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mt. Zion Cemetery Map & Records</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #search-input {
+            padding: 8px;
+            width: 280px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        #map {
+            flex-grow: 1;
+            width: 100%;
+        }
+        .leaflet-popup-content h3 {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        .leaflet-popup-content p {
+            margin: 4px 0;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <h2>Mt. Zion Cemetery Directory</h2>
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="Search by name (e.g. John Doe)...">
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. Initialize the Map
+        const map = L.map('map').setView([37.0, -91.5], 18);
+
+        // 2. Add Satellite Imagery (Esri World Imagery)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 22,
+            maxNativeZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-eGP, and the GIS User Community'
+        }).addTo(map);
+
+        let plotsLayerGroup = L.layerGroup().addTo(map);
+
+        // 3. Load Lots (Background Boundaries)
+        fetch('lots.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    style: {
+                        color: "#f39c12",
+                        weight: 2,
+                        fillOpacity: 0.1
+                    }
+                }).addTo(map);
+            }).catch(err => console.log("Lots geojson optional load note:", err));
+
+        // 4. Load Plots (Interactive Data Layers)
+        let plotLayers = {}; // To help search find them easily
+
+        fetch('plots.geojson')
+            .then(response => response.json())
+            .then(data => {
+                const geoJsonLayer = L.geoJSON(data, {
+                    style: {
+                        color: "#ffffff",
+                        weight: 1,
+                        fillColor: "#3498db",
+                        fillOpacity: 0.5
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        const fullName = props.full_name || '';
+                        
+                        if (fullName) {
+                            plotLayers[fullName.toLowerCase()] = layer;
+                        }
+
+                        const popupContent = `
+                            <h3>${props.full_name || 'Unassigned / Available'}</h3>
+                            <p><strong>Plot ID:</strong> ${props.plot_id || 'N/A'}</p>
+                            <p><strong>Lot Number:</strong> ${props.lot_number || 'N/A'}</p>
+                            <p><strong>Dates:</strong> ${props.birth_date || '?'} – ${props.death_date || '?'}</p>
+                            <p><strong>Lot Owner:</strong> ${props.lot_owner || 'N/A'}</p>
+                            <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
+                            <p><strong>Obituary / Notes:</strong><br>${props.obituary || props.notes || 'No records added yet.'}</p>
+                        `;
+                        layer.bindPopup(popupContent);
+
+                        layer.on({
+                            mouseover: function(e) {
+                                e.target.setStyle({ fillColor: "#e74c3c", fillOpacity: 0.7 });
+                            },
+                            mouseout: function(e) {
+                                geoJsonLayer.resetStyle(e.target);
+                            }
+                        });
+                    }
+                }).addTo(plotsLayerGroup);
+
+                // Auto-zoom to fit your cemetery layout once loaded
+                if (data.features.length > 0) {
+                    map.fitBounds(geoJsonLayer.getBounds());
+                }
+            });
+
+        // 5. Working Search Bar Logic
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                let found = false;
+
+                plotsLayerGroup.eachLayer(function(layer) {
+                    layer.eachLayer(function(subLayer) {
+                        const name = (subLayer.feature.properties.full_name || "").toLowerCase();
+                        if (name.includes(searchTerm)) {
+                            map.fitBounds(subLayer.getBounds(), { maxZoom: 21 });
+                            subLayer.openPopup();
+                            found = true;
+                        }
+                    });
+                });
+
+                if (!found) {
+                    alert("No matching burial record found for: " + e.target.value);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
