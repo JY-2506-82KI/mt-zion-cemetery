@@ -74,11 +74,26 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
         // 1. Initialize the Map
         const map = L.map('map').setView([37.0, -91.5], 18);
-        // Automatically show plots only when zoomed in close enough
+
+        // 2. Add Satellite Imagery (Esri World Imagery)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 22,
+            maxNativeZoom: 19,
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-eGP, and the GIS User Community'
+        }).addTo(map);
+
+        let plotsLayerGroup = L.layerGroup();
+
+        // Combined zoom watcher for plots and lot labels
         map.on('zoomend', function() {
             const currentZoom = map.getZoom();
+            
+            // 1. Manage Plots visibility (shows only when super close)
             if (currentZoom >= 21) {
                 if (!map.hasLayer(plotsLayerGroup)) {
                     map.addLayer(plotsLayerGroup);
@@ -88,7 +103,44 @@
                     map.removeLayer(plotsLayerGroup);
                 }
             }
+
+            // 2. Manage Lot Label text clutter (hides text when zoomed out)
+            const mapElement = document.getElementById('map');
+            if (currentZoom < 18) {  
+                mapElement.classList.add('hide-lot-labels');
+            } else {
+                mapElement.classList.remove('hide-lot-labels');
+            }
         });
+
+        // 3. Load Lots (Background Boundaries) with clean labels
+        fetch('lots.geojson')
+            .then(response => response.json())
+            .then(data => {
+                const lotsLayer = L.geoJSON(data, {
+                    style: {
+                        color: "#f39c12",
+                        weight: 1.5,
+                        fillOpacity: 0.1
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        const lotLabelText = props.lot_no || ''; 
+
+                        if (lotLabelText) {
+                            layer.bindTooltip(lotLabelText, {
+                                permanent: true,
+                                direction: 'center',
+                                className: 'lot-label'
+                            });
+                        }
+                    }
+                }).addTo(map);
+
+                if (data.features.length > 0) {
+                    map.fitBounds(lotsLayer.getBounds());
+                }
+            }).catch(err => console.log("Lots geojson optional load note:", err));
 
         // 3. Load Lots (Background Boundaries) with clean labels
         fetch('lots.geojson')
