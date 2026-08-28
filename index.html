@@ -64,7 +64,7 @@
         // Automatically show plots only when zoomed in close enough
         map.on('zoomend', function() {
             const currentZoom = map.getZoom();
-            if (currentZoom >= 19) {
+            if (currentZoom >= 21) {
                 if (!map.hasLayer(plotsLayerGroup)) {
                     map.addLayer(plotsLayerGroup);
                 }
