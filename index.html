@@ -125,17 +125,34 @@
 
         let plotsLayerGroup = L.layerGroup();
 
-        // 3. Load Lots (Background Boundaries)
+        // 3. Load Lots (Background Boundaries) with clean labels
         fetch('lots.geojson')
             .then(response => response.json())
             .then(data => {
-                L.geoJSON(data, {
+                const lotsLayer = L.geoJSON(data, {
                     style: {
                         color: "#f39c12",
-                        weight: 2,
+                        weight: 1.5,
                         fillOpacity: 0.1
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        // Pulling the lot number directly from your 'lot_no' QGIS field
+                        const lotLabelText = props.lot_no || ''; 
+
+                        if (lotLabelText) {
+                            layer.bindTooltip(lotLabelText, {
+                                permanent: true,
+                                direction: 'center',
+                                className: 'lot-label'
+                            });
+                        }
                     }
                 }).addTo(map);
+
+                if (data.features.length > 0) {
+                    map.fitBounds(lotsLayer.getBounds());
+                }
             }).catch(err => console.log("Lots geojson optional load note:", err));
 
         // 4. Load Plots (Interactive Data Layers)
