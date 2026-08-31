@@ -391,13 +391,17 @@
                         }
                     }
 
-                    // Build clean popup content with Birth, Death, and conditional Age
+                    // Pull lot owner property safely
+                    const lotOwner = props.lot_owner ? `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Lot Owner:</strong> ${props.lot_owner}</p>` : '';
+
+                    // Build clean popup content with Birth, Death, Age, and Lot Owner
                     let popupContent = `
                         <div style="font-family: Arial, sans-serif; min-width: 180px;">
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Birth:</strong> ${birth}</p>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Death:</strong> ${death}</p>
                             ${ageString}
+                            ${lotOwner}
                             <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
                         </div>
                     `;
