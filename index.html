@@ -163,10 +163,21 @@
                     const status = (props.status || "").toLowerCase();
                     const hasName = props.name && props.name.trim() !== "";
 
+                    // Professional Palette: Soft Sage for Available, Slate Blue for Owned/Sold
                     if (status.includes('available') || status.includes('for sale') || !hasName) {
-                        return { color: "#2ecc71", weight: 1.5, fillColor: "#2ecc71", fillOpacity: 0.2 };
+                        return { 
+                            color: "#27ae60",      // Deep sage border
+                            weight: 1.5, 
+                            fillColor: "#2ecc71",  // Soft sage fill
+                            fillOpacity: 0.15      // Gentle transparency so satellite view shines through
+                        };
                     } else {
-                        return { color: "#f39c12", weight: 1.5, fillColor: "#f39c12", fillOpacity: 0.1 };
+                        return { 
+                            color: "#34495e",      // Dark slate border
+                            weight: 1.5, 
+                            fillColor: "#576574",  // Professional muted slate/gray fill
+                            fillOpacity: 0.25 
+                        };
                     }
                 },
                 onEachFeature: function(feature, layer) {
@@ -186,7 +197,7 @@
                     const popupContent = `
                         <div style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
                             <strong>Lot Number:</strong> ${lotNo}<br>
-                            <strong>Status:</strong> <span style="color: ${ownerName ? '#e67e22' : '#27ae60'}; font-weight: bold;">${lotStatus}</span><br>
+                            <strong>Status:</strong> <span style="color: ${ownerName ? '#576574' : '#27ae60'}; font-weight: bold;">${lotStatus}</span><br>
                             <strong>Owner / Name:</strong> ${ownerName || 'None (Open / Available)'}
                         </div>
                     `;
