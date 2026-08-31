@@ -512,6 +512,15 @@
                         }
                     }
 
+                    // Smoothly center on the lot/plot center and open its popup
+                    const targetCenter = match.layer.getBounds().getCenter();
+                    map.setView(targetCenter, match.zoomLevel);
+                    
+                    setTimeout(() => {
+                        match.layer.openPopup();
+                    }, 150);
+                });
+
                     // Zoom and open popup
                     map.fitBounds(match.layer.getBounds(), { maxZoom: match.zoomLevel });
                     match.layer.openPopup();
