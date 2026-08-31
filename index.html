@@ -504,7 +504,7 @@
                     searchInput.value = '';
                     resultsContainer.style.display = 'none';
 
-                    // If it's a plot, make sure the plots toggle is checked and layer is visible
+                    // 1. Ensure plots layer is visible if a plot was selected
                     if (match.isPlot) {
                         document.getElementById('toggle-plots').checked = true;
                         if (!map.hasLayer(plotsLayerGroup)) {
@@ -512,11 +512,16 @@
                         }
                     }
 
-                    // Give the map a tiny moment to render the layer if it was just turned on, then zoom and open popup
+                    // 2. Get the exact center coordinates of the polygon
+                    const centerPoint = match.layer.getBounds().getCenter();
+
+                    // 3. Instantly center and zoom the map to that location
+                    map.setView(centerPoint, match.zoomLevel);
+
+                    // 4. Open the popup right after the view updates
                     setTimeout(() => {
-                        map.fitBounds(match.layer.getBounds(), { maxZoom: match.zoomLevel, animate: true });
                         match.layer.openPopup();
-                    }, 200);
+                    }, 100);
                 });
 
                 resultsContainer.appendChild(div);
