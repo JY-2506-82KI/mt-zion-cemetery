@@ -358,9 +358,31 @@
                         className: 'plot-hover-tooltip'
                     });
 
-                    // Calculate age safely if years are available
+                    // Smart Hybrid Age Calculation
                     let ageString = '';
-                    if (birthYear && deathYear) {
+                    const birthRaw = props.birth_date ? String(props.birth_date).trim() : '';
+                    const deathRaw = props.death_date ? String(props.death_date).trim() : '';
+
+                    // Check if both are full dates (e.g. YYYY-MM-DD or MM/DD/YYYY formats)
+                    const isFullDate = (str) => /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(str) || /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str);
+
+                    if (isFullDate(birthRaw) && isFullDate(deathRaw)) {
+                        const bDate = new Date(birthRaw);
+                        const dDate = new Date(deathRaw);
+                        if (!isNaN(bDate.getTime()) && !isNaN(dDate.getTime())) {
+                            let age = dDate.getFullYear() - bDate.getFullYear();
+                            const m = dDate.getMonth() - bDate.getMonth();
+                            if (m < 0 || (m === 0 && dDate.getDate() < bDate.getDate())) {
+                                age--;
+                            }
+                            if (age >= 0) {
+                                ageString = `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Age:</strong> ${age} years</p>`;
+                            }
+                        }
+                    }
+
+                    // Fallback to year-based approximation with tilde if exact age wasn't calculated
+                    if (!ageString && birthYear && deathYear) {
                         const bY = parseInt(birthYear, 10);
                         const dY = parseInt(deathYear, 10);
                         const diff = dY - bY;
@@ -393,7 +415,7 @@
                         if (slot && !slot.dataset.checked) {
                             slot.dataset.checked = "true";
                             
-                            fetch(obituarypath, { method: 'HEAD' })
+                            fetch(obituaryPath, { method: 'HEAD' })
                                 .then(response => {
                                     if (response.ok) {
                                         // File exists! Reveal the button link.
