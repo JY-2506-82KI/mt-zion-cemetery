@@ -337,12 +337,12 @@
                     const death = props.death_date || '?';
 
                     const displayName = maidenName ? `${fullName} (${maidenName})` : fullName;
-                    const dateString = `${birth} – ${death}`; // Used for the obituary modal header
+                    const dateString = `${birth} – ${death}`; // Used for obituary modal header
 
-                    // Extract just the 4-digit years for the hover tooltip
-                    const birthYear = props.birth_date ? (String(props.birth_date).match(/\d{4}/)?.[0] || props.birth_date) : '?';
-                    const deathYear = props.death_date ? (String(props.death_date).match(/\d{4}/)?.[0] || props.death_date) : '?';
-                    const hoverDateString = `${birthYear} – ${deathYear}`;
+                    // Extract 4-digit years for hover tooltip
+                    const birthYear = props.birth_date ? (String(props.birth_date).match(/\d{4}/)?.[0] || null) : null;
+                    const deathYear = props.death_date ? (String(props.death_date).match(/\d{4}/)?.[0] || null) : null;
+                    const hoverDateString = `${birthYear || '?'} – ${deathYear || '?'}`;
 
                     // Hover tooltip: Name on top, Years below
                     const hoverContent = fullName ? `
@@ -358,12 +358,24 @@
                         className: 'plot-hover-tooltip'
                     });
 
-                    // Build clean popup content with distinct Birth and Death rows
+                    // Calculate age safely if years are available
+                    let ageString = '';
+                    if (birthYear && deathYear) {
+                        const bY = parseInt(birthYear, 10);
+                        const dY = parseInt(deathYear, 10);
+                        const diff = dY - bY;
+                        if (diff >= 0) {
+                            ageString = `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Age:</strong> ~${diff} years</p>`;
+                        }
+                    }
+
+                    // Build clean popup content with Birth, Death, and conditional Age
                     let popupContent = `
                         <div style="font-family: Arial, sans-serif; min-width: 180px;">
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Birth:</strong> ${birth}</p>
-                            <p style="margin: 3px 0 8px 0; font-size: 13px; color: #555;"><strong>Death:</strong> ${death}</p>
+                            <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Death:</strong> ${death}</p>
+                            ${ageString}
                             <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
                         </div>
                     `;
@@ -381,7 +393,7 @@
                         if (slot && !slot.dataset.checked) {
                             slot.dataset.checked = "true";
                             
-                            fetch(obituaryPath, { method: 'HEAD' })
+                            fetch(obituarypath, { method: 'HEAD' })
                                 .then(response => {
                                     if (response.ok) {
                                         // File exists! Reveal the button link.
