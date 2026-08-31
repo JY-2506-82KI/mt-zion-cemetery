@@ -337,7 +337,7 @@
                     const death = props.death_date || '?';
 
                     const displayName = maidenName ? `${fullName} (${maidenName})` : fullName;
-                    const dateString = `${birth} – ${death}`;
+                    const dateString = `${birth} – ${death}`; // Used for the obituary modal header
 
                     // Extract just the 4-digit years for the hover tooltip
                     const birthYear = props.birth_date ? (String(props.birth_date).match(/\d{4}/)?.[0] || props.birth_date) : '?';
@@ -358,11 +358,12 @@
                         className: 'plot-hover-tooltip'
                     });
 
-                    // Build clean popup content (Name, Full Dates, and conditional Obituary slot)
+                    // Build clean popup content with distinct Birth and Death rows
                     let popupContent = `
                         <div style="font-family: Arial, sans-serif; min-width: 180px;">
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
-                            <p style="margin: 3px 0 8px 0; font-size: 13px; color: #555;"><strong>Dates:</strong> ${dateString}</p>
+                            <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Birth:</strong> ${birth}</p>
+                            <p style="margin: 3px 0 8px 0; font-size: 13px; color: #555;"><strong>Death:</strong> ${death}</p>
                             <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
                         </div>
                     `;
