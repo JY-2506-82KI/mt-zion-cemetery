@@ -271,6 +271,47 @@
         modal.style.display = 'flex';
     }
 
+    // --- Sidebar Panel Helper (Option 1) ---
+    function showPlotSidebar(displayName, dateString, obituaryPath) {
+        let sidebar = document.getElementById('plot-sidebar');
+        if (!sidebar) {
+            sidebar = document.createElement('div');
+            sidebar.id = 'plot-sidebar';
+            sidebar.style.cssText = "position:fixed;top:0;right:0;width:320px;height:100%;background:white;box-shadow:-4px 0 15px rgba(0,0,0,0.15);z-index:9999;padding:25px;box-sizing:border-box;font-family:sans-serif;display:flex;flex-direction:column;transition:transform 0.3s ease;";
+            document.body.appendChild(sidebar);
+        }
+
+        sidebar.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #eee;padding-bottom:15px;margin-bottom:15px;">
+                <h2 style="margin:0;color:#2c3e50;font-size:20px;line-height:1.2;">${displayName || 'Unassigned / Available'}</h2>
+                <button onclick="document.getElementById('plot-sidebar').style.transform='translateX(100%)'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#7f8c8d;padding:0 5px;">&times;</button>
+            </div>
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555;"><strong>Dates:</strong> ${dateString}</p>
+            <div id="sidebar-obit-slot" style="margin-top:5px;"></div>
+        `;
+
+        sidebar.style.transform = 'translateX(0)';
+
+        // Check if obituary file exists on GitHub
+        if (obituaryPath) {
+            const obitSlot = document.getElementById('sidebar-obit-slot');
+            fetch(obituaryPath, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        obitSlot.innerHTML = `
+                            <div style="border-top: 1px solid #eee; padding-top: 15px;">
+                                <a href="javascript:void(0);" onclick="viewObituary('${displayName.replace(/'/g, "\\'")}', '${dateString}', '${obituaryPath}')" 
+                                   style="display:inline-block;background:#2980b9;color:white;text-decoration:none;font-weight:bold;font-size:13px;padding:8px 14px;border-radius:4px;">
+                                   📄 Read Obituary
+                                </a>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+
     // 4. Load Plots (Interactive Burial Records + Indexing into Search)
     fetch('plots.geojson')
         .then(response => response.json())
@@ -278,7 +319,7 @@
             const geoJsonLayer = L.geoJSON(data, {
                 style: function(feature) {
                     const props = feature.properties;
-                    const fullName = props.full_name ? props.full_name.trim() : '';
+                    const fullName = props.full_name ? props.full_name.trim() : {};
 
                     if (fullName !== "") {
                         return { color: "#c0392b", weight: 1, fillColor: "#e74c3c", fillOpacity: 0.45 };
@@ -288,10 +329,10 @@
                 },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
-                    const plotId = props.plot_id || ''; // e.g., "1-1"
+                    const plotId = props.plot_id || ''; 
                     const fullName = props.full_name || '';
                     const maidenName = props.maiden_name ? props.maiden_name.trim() : '';
-                    const lotNumber = props.lot_no || '';
+                    const lotNumber = props.lot_no || ''; 
                     const birth = props.birth_date || '?';
                     const death = props.death_date || '?';
 
@@ -312,45 +353,10 @@
                         className: 'plot-hover-tooltip'
                     });
 
-                    // Build clean popup content (Name, Dates, and conditional Obituary slot)
-                    let popupContent = `
-                        <div style="font-family: Arial, sans-serif; min-width: 180px;">
-                            <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
-                            <p style="margin: 3px 0 8px 0; font-size: 13px; color: #555;"><strong>Dates:</strong> ${dateString}</p>
-                            <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
-                        </div>
-                    `;
-
-                    layer.bindPopup(popupContent);
-
-                    // When the popup opens, check if the corresponding obituary text file exists on GitHub
-                    layer.on('popupopen', function() {
-                        if (!plotId) return;
-                        const obituaryPath = `obituaries/${plotId}.txt`;
-                        const popupEl = layer.getPopup().getElement();
-                        const slot = popupEl ? popupEl.querySelector('.obit-link-slot') : null;
-                        
-                        // Only check once per popup open session to save resources
-                        if (slot && !slot.dataset.checked) {
-                            slot.dataset.checked = "true";
-                            
-                            fetch(obituaryPath, { method: 'HEAD' })
-                                .then(response => {
-                                    if (response.ok) {
-                                        // File exists! Reveal the button link.
-                                        slot.style.display = 'block';
-                                        slot.innerHTML = `
-                                            <a href="javascript:void(0);" onclick="viewObituary('${displayName.replace(/'/g, "\\'")}', '${dateString}', '${obituaryPath}')" 
-                                               style="color: #2980b9; text-decoration: none; font-weight: bold; font-size: 13px;">
-                                               📄 Read Obituary
-                                            </a>
-                                        `;
-                                    }
-                                })
-                                .catch(() => {
-                                    // File doesn't exist, keep the slot hidden.
-                                });
-                        }
+                    // Click event opens the clean sidebar panel instead of a popup balloon
+                    layer.on('click', function() {
+                        const obituaryPath = plotId ? `obituaries/${plotId}.txt` : '';
+                        showPlotSidebar(displayName, dateString, obituaryPath);
                     });
 
                     // Hover outline effect
