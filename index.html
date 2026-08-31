@@ -29,11 +29,12 @@
     }
     
     /* Search Box & Autocomplete Dropdown Container */
-    #search-container { /* use your actual class or ID name */
-    width: 90%;                  /* Takes up most of the phone screen */
-    max-width: 350px;            /* Caps it nicely on desktop/tablets */
-    box-sizing: border-box;      /* Includes padding in the width calculation */
-    margin: 0 auto;              /* Centers it if needed */
+    #search-container { 
+        position: relative;            /* <--- THIS IS WHAT WAS MISSING */
+        width: 90%;                    
+        max-width: 350px;              
+        box-sizing: border-box;       
+        margin: 0 auto;               
     }
     #search-input {
     width: 100%;                 /* Fills the container perfectly */
