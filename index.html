@@ -236,7 +236,28 @@
         .then(response => response.json())
         .then(data => {
             const geoJsonLayer = L.geoJSON(data, {
-                style: { color: "#ffffff", weight: 1, fillColor: "#3498db", fillOpacity: 0.5 },
+                style: function(feature) {
+                    const props = feature.properties;
+                    const fullName = props.full_name ? props.full_name.trim() : '';
+
+                    if (fullName !== "") {
+                        // Occupied / Has Burial Record
+                        return { 
+                            color: "#c0392b",       // Deep red/burgundy border
+                            weight: 1, 
+                            fillColor: "#e74c3c",   // Muted terracotta/red fill
+                            fillOpacity: 0.45 
+                        };
+                    } else {
+                        // Unoccupied / Open Plot
+                        return { 
+                            color: "#7f8c8d",       // Gray border
+                            weight: 1, 
+                            fillColor: "#bdc3c7",   // Soft neutral gray fill
+                            fillOpacity: 0.3 
+                        };
+                    }
+                },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
                     const fullName = props.full_name || '';
