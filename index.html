@@ -289,6 +289,7 @@
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
                     const plotId = props.plot_id || ''; // e.g., "plot_101"
+                    console.log("Looking for obituary file with ID:", plotId);
                     const fullName = props.full_name || '';
                     const maidenName = props.maiden_name ? props.maiden_name.trim() : '';
                     const lotNumber = props.lot_number || '';
