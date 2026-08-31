@@ -360,13 +360,44 @@
                         });
                     }
 
+                    // Smart Hybrid Age Calculation
+                    let ageString = '';
+                    const birthRaw = props.birth_date ? String(props.birth_date).trim() : '';
+                    const deathRaw = props.death_date ? String(props.death_date).trim() : '';
+
+                    const isFullDate = (str) => /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(str) || /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str);
+
+                    if (isFullDate(birthRaw) && isFullDate(deathRaw)) {
+                        const bDate = new Date(birthRaw);
+                        const dDate = new Date(deathRaw);
+                        if (!isNaN(bDate.getTime()) && !isNaN(dDate.getTime())) {
+                            let age = dDate.getFullYear() - bDate.getFullYear();
+                            const m = dDate.getMonth() - bDate.getMonth();
+                            if (m < 0 || (m === 0 && dDate.getDate() < bDate.getDate())) {
+                                age--;
+                            }
+                            if (age >= 0) {
+                                ageString = `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Age:</strong> ${age} years</p>`;
+                            }
+                        }
+                    }
+
+                    if (!ageString && birthYear && deathYear) {
+                        const bY = parseInt(birthYear, 10);
+                        const dY = parseInt(deathYear, 10);
+                        const diff = dY - bY;
+                        if (diff >= 0) {
+                            ageString = `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Age:</strong> ~${diff} years</p>`;
+                        }
+                    }
+
                     // Build clean popup content with Birth, Death, and conditional Age
                     let popupContent = `
                         <div style="font-family: Arial, sans-serif; min-width: 180px;">
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Birth:</strong> ${birth}</p>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Death:</strong> ${death}</p>
-                            ${ageStringGenerator(props, birthYear, deathYear)}
+                            ${ageString}
                             <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
                         </div>
                     `;
