@@ -339,11 +339,16 @@
                     const displayName = maidenName ? `${fullName} (${maidenName})` : fullName;
                     const dateString = `${birth} – ${death}`;
 
-                    // Hover tooltip: Name on top, Dates below
+                    // Extract just the 4-digit years for the hover tooltip
+                    const birthYear = props.birth_date ? (String(props.birth_date).match(/\d{4}/)?.[0] || props.birth_date) : '?';
+                    const deathYear = props.death_date ? (String(props.death_date).match(/\d{4}/)?.[0] || props.death_date) : '?';
+                    const hoverDateString = `${birthYear} – ${deathYear}`;
+
+                    // Hover tooltip: Name on top, Years below
                     const hoverContent = fullName ? `
                         <div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; text-align: center;">
                             <strong>${displayName}</strong><br>
-                            <span style="font-size: 11px; color: #555;">${dateString}</span>
+                            <span style="font-size: 11px; color: #555;">${hoverDateString}</span>
                         </div>
                     ` : `Unassigned Plot`;
 
@@ -353,7 +358,7 @@
                         className: 'plot-hover-tooltip'
                     });
 
-                    // Build clean popup content (Name, Dates, and conditional Obituary slot)
+                    // Build clean popup content (Name, Full Dates, and conditional Obituary slot)
                     let popupContent = `
                         <div style="font-family: Arial, sans-serif; min-width: 180px;">
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
@@ -414,7 +419,6 @@
                 }
             }).addTo(plotsLayerGroup); 
         }).catch(err => console.log("Plots geojson optional load note:", err));
-
     // 5. Header Toggle Event Listeners
     document.getElementById('toggle-lots').addEventListener('change', function(e) {
         if (e.target.checked) {
