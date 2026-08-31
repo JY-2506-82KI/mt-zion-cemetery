@@ -512,6 +512,13 @@
                         }
                     }
 
+                    // Give the map a tiny moment to render the layer if it was just turned on, then zoom and open popup
+                    setTimeout(() => {
+                        map.fitBounds(match.layer.getBounds(), { maxZoom: match.zoomLevel, animate: true });
+                        match.layer.openPopup();
+                    }, 200);
+                });
+
                     // Smoothly center on the lot/plot center and open its popup
                     const targetCenter = match.layer.getBounds().getCenter();
                     map.setView(targetCenter, match.zoomLevel);
