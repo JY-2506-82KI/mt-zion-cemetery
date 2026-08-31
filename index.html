@@ -288,8 +288,7 @@
                 },
                 onEachFeature: function(feature, layer) {
                     const props = feature.properties;
-                    const plotId = props.plot_id || ''; // e.g., "plot_101"
-                    console.log("Looking for obituary file with ID:", plotId);
+                    const plotId = props.plot_id || ''; // e.g., "1-1"
                     const fullName = props.full_name || '';
                     const maidenName = props.maiden_name ? props.maiden_name.trim() : '';
                     const lotNumber = props.lot_number || '';
@@ -313,31 +312,46 @@
                         className: 'plot-hover-tooltip'
                     });
 
-                    // Click popup content
+                    // Build clean popup content (Name, Dates, and conditional Obituary slot)
                     let popupContent = `
                         <div style="font-family: Arial, sans-serif; min-width: 180px;">
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Dates:</strong> ${dateString}</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Plot ID:</strong> ${plotId || 'N/A'}</p>
-                            <p style="margin: 3px 0; font-size: 13px;"><strong>Lot Number:</strong> ${lotNumber || 'N/A'}</p>
+                            <p style="margin: 3px 0 8px 0; font-size: 13px; color: #555;"><strong>Dates:</strong> ${dateString}</p>
+                            <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
+                        </div>
                     `;
 
-                    // If a plot ID exists, we dynamically point to obituaries/plot_ID.txt
-                    if (fullName && plotId) {
-                        const obituaryPath = `obituaries/${plotId}.txt`;
-                        
-                        popupContent += `
-                            <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 8px;">
-                                <a href="javascript:void(0);" onclick="viewObituary('${displayName.replace(/'/g, "\\'")}', '${dateString}', '${obituaryPath}')" 
-                                   style="color: #2980b9; text-decoration: none; font-weight: bold; font-size: 13px;">
-                                   📄 Read Obituary
-                                </a>
-                            </div>
-                        `;
-                    }
-
-                    popupContent += `</div>`;
                     layer.bindPopup(popupContent);
+
+                    // When the popup opens, check if the corresponding obituary text file exists on GitHub
+                    layer.on('popupopen', function() {
+                        if (!plotId) return;
+                        const obituaryPath = `obituaries/${plotId}.txt`;
+                        const popupEl = layer.getPopup().getElement();
+                        const slot = popupEl ? popupEl.querySelector('.obit-link-slot') : null;
+                        
+                        // Only check once per popup open session to save resources
+                        if (slot && !slot.dataset.checked) {
+                            slot.dataset.checked = "true";
+                            
+                            fetch(obituaryPath, { method: 'HEAD' })
+                                .then(response => {
+                                    if (response.ok) {
+                                        // File exists! Reveal the button link.
+                                        slot.style.display = 'block';
+                                        slot.innerHTML = `
+                                            <a href="javascript:void(0);" onclick="viewObituary('${displayName.replace(/'/g, "\\'")}', '${dateString}', '${obituaryPath}')" 
+                                               style="color: #2980b9; text-decoration: none; font-weight: bold; font-size: 13px;">
+                                               📄 Read Obituary
+                                            </a>
+                                        `;
+                                    }
+                                })
+                                .catch(() => {
+                                    // File doesn't exist, keep the slot hidden.
+                                });
+                        }
+                    });
 
                     // Hover outline effect
                     layer.on({
