@@ -344,51 +344,20 @@
                     const deathYear = props.death_date ? (String(props.death_date).match(/\d{4}/)?.[0] || null) : null;
                     const hoverDateString = `${birthYear || '?'} – ${deathYear || '?'}`;
 
-                    // Hover tooltip: Name on top, Years below
-                    const hoverContent = fullName ? `
-                        <div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; text-align: center;">
-                            <strong>${displayName}</strong><br>
-                            <span style="font-size: 11px; color: #555;">${hoverDateString}</span>
-                        </div>
-                    ` : `Unassigned Plot`;
+                    // Only bind hover tooltips if the plot is occupied
+                    if (fullName) {
+                        const hoverContent = `
+                            <div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; text-align: center;">
+                                <strong>${displayName}</strong><br>
+                                <span style="font-size: 11px; color: #555;">${hoverDateString}</span>
+                            </div>
+                        `;
 
-                    layer.bindTooltip(hoverContent, {
-                        direction: 'top',
-                        offset: [0, -5],
-                        className: 'plot-hover-tooltip'
-                    });
-
-                    // Smart Hybrid Age Calculation
-                    let ageString = '';
-                    const birthRaw = props.birth_date ? String(props.birth_date).trim() : '';
-                    const deathRaw = props.death_date ? String(props.death_date).trim() : '';
-
-                    // Check if both are full dates (e.g. YYYY-MM-DD or MM/DD/YYYY formats)
-                    const isFullDate = (str) => /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(str) || /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str);
-
-                    if (isFullDate(birthRaw) && isFullDate(deathRaw)) {
-                        const bDate = new Date(birthRaw);
-                        const dDate = new Date(deathRaw);
-                        if (!isNaN(bDate.getTime()) && !isNaN(dDate.getTime())) {
-                            let age = dDate.getFullYear() - bDate.getFullYear();
-                            const m = dDate.getMonth() - bDate.getMonth();
-                            if (m < 0 || (m === 0 && dDate.getDate() < bDate.getDate())) {
-                                age--;
-                            }
-                            if (age >= 0) {
-                                ageString = `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Age:</strong> ${age} years</p>`;
-                            }
-                        }
-                    }
-
-                    // Fallback to year-based approximation with tilde if exact age wasn't calculated
-                    if (!ageString && birthYear && deathYear) {
-                        const bY = parseInt(birthYear, 10);
-                        const dY = parseInt(deathYear, 10);
-                        const diff = dY - bY;
-                        if (diff >= 0) {
-                            ageString = `<p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Age:</strong> ~${diff} years</p>`;
-                        }
+                        layer.bindTooltip(hoverContent, {
+                            direction: 'top',
+                            offset: [0, -5],
+                            className: 'plot-hover-tooltip'
+                        });
                     }
 
                     // Build clean popup content with Birth, Death, and conditional Age
@@ -397,7 +366,7 @@
                             <h3 style="margin: 0 0 5px 0; color: #2c3e50;">${displayName || 'Unassigned / Available'}</h3>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Birth:</strong> ${birth}</p>
                             <p style="margin: 3px 0; font-size: 13px; color: #555;"><strong>Death:</strong> ${death}</p>
-                            ${ageString}
+                            ${ageStringGenerator(props, birthYear, deathYear)}
                             <div class="obit-link-slot" style="margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; display: none;"></div>
                         </div>
                     `;
