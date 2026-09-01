@@ -531,25 +531,32 @@
                         }
                     }
 
-                    // 2. Get the exact center coordinates of the polygon
+                    // 2. Get the center coordinates of the polygon
                     const bounds = match.layer.getBounds();
                     const centerPoint = bounds.getCenter();
 
                     // 3. Center and zoom the map
                     map.setView(centerPoint, match.zoomLevel);
 
-                    // 4. Open the popup by explicitly passing the coordinates to the polygon layer
+                    // 4. Extract content and force open a direct Leaflet popup
                     setTimeout(() => {
-                        try {
-                            match.layer.openPopup(centerPoint);
-                        } catch (err) {
-                            // Fallback: force open a popup at the center if layer reference lags
-                            const content = match.layer.getPopup() ? match.layer.getPopup().getContent() : '';
-                            if (content) {
-                                L.popup().setLatLng(centerPoint).setContent(content).openOn(map);
-                            }
+                        let popupContent = '';
+                        
+                        // Try pulling content from the layer's existing popup
+                        if (match.layer.getPopup && match.layer.getPopup()) {
+                            popupContent = match.layer.getPopup().getContent();
+                        } else if (match.popupContent) {
+                            // Fallback if stored in match object
+                            popupContent = match.popupContent;
                         }
-                    }, 250);
+
+                        if (popupContent) {
+                            L.popup()
+                              .setLatLng(centerPoint)
+                              .setContent(popupContent)
+                              .openOn(map);
+                        }
+                    }, 300);
                 });
 
                 resultsContainer.appendChild(div);
