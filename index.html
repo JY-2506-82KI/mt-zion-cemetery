@@ -233,7 +233,11 @@
                             display: `📍 Lot ${lotNo} — Owner: ${ownerName || 'Available'}`,
                             searchText: `${lotNo} ${ownerName}`.toLowerCase(),
                             layer: layer,
-                            zoomLevel: 19
+                            zoomLevel: 19,
+                            // Cache QGIS properties so the click handler can read them
+                            lotNo: lotNo,
+                            ownerName: ownerName,
+                            lotStatus: lotStatus
                         });
                     }
                 }
@@ -538,41 +542,28 @@
                     // 3. Center and zoom the map
                     map.setView(centerPoint, match.zoomLevel);
 
-                    // 4. Give layers time to render (lots need a bit more time)
-                    const delay = match.isPlot ? 150 : 400;
+                    // 4. Give layers time to render and open the correct popup
+                    const delay = match.isPlot ? 150 : 300;
 
                     setTimeout(() => {
-                        let content = '';
-                        
-                        // Try grabbing existing popup content (works for plots)
-                        if (match.layer.getPopup && match.layer.getPopup()) {
-                            content = match.layer.getPopup().getContent();
-                        } 
-                        
-                        // If no popup exists (which was happening for lots), generate one dynamically from properties
-                        if (!content && match.feature && match.feature.properties) {
-                            const p = match.feature.properties;
-                            const lotName = p.LotNumber || p.Lot || p.Name || 'Lot Details';
-                            const ownerName = p.Owner || p.OwnerName || '';
-                            
-                            content = `
-                                <div style="font-family: 'Libre Baskerville', serif;">
-                                    <strong>Lot: ${lotName}</strong>
-                                    ${ownerName ? '<br>Owner: ' + ownerName : ''}
+                        if (match.isPlot) {
+                            // Plots already have full popup bindings from your code
+                            if (match.layer.getPopup && match.layer.getPopup()) {
+                                L.popup().setLatLng(centerPoint).setContent(match.layer.getPopup().getContent()).openOn(map);
+                            }
+                        } else {
+                            // Build the lot popup dynamically using standard QGIS fields
+                            const lotPopupContent = `
+                                <div style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.4;">
+                                    <strong>Lot Number:</strong> ${match.lotNo || 'N/A'}<br>
+                                    <strong>Status:</strong> <span style="color: ${match.ownerName ? '#576574' : '#27ae60'}; font-weight: bold;">${match.lotStatus}</span><br>
+                                    <strong>Owner / Name:</strong> ${match.ownerName || 'None (Open / Available)'}
                                 </div>
                             `;
-                        }
-
-                        // Force open the popup at the center coordinates
-                        if (content) {
-                            L.popup()
-                              .setLatLng(centerPoint)
-                              .setContent(content)
-                              .openOn(map);
+                            L.popup().setLatLng(centerPoint).setContent(lotPopupContent).openOn(map);
                         }
                     }, delay);
-                });
-                resultsContainer.appendChild(div);
+                });                resultsContainer.appendChild(div);
             });
         } else {
             resultsContainer.style.display = 'none';
