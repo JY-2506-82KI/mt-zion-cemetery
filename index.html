@@ -538,23 +538,40 @@
                     // 3. Center and zoom the map
                     map.setView(centerPoint, match.zoomLevel);
 
-                    // 4. Give layers time to render (lots need a bit more time than plots)
+                    // 4. Give layers time to render (lots need a bit more time)
                     const delay = match.isPlot ? 150 : 400;
 
                     setTimeout(() => {
-                        // Use your layer's original popup content, forcing it open at the center coordinates
+                        let content = '';
+                        
+                        // Try grabbing existing popup content (works for plots)
                         if (match.layer.getPopup && match.layer.getPopup()) {
-                            const content = match.layer.getPopup().getContent();
+                            content = match.layer.getPopup().getContent();
+                        } 
+                        
+                        // If no popup exists (which was happening for lots), generate one dynamically from properties
+                        if (!content && match.feature && match.feature.properties) {
+                            const p = match.feature.properties;
+                            const lotName = p.LotNumber || p.Lot || p.Name || 'Lot Details';
+                            const ownerName = p.Owner || p.OwnerName || '';
+                            
+                            content = `
+                                <div style="font-family: 'Libre Baskerville', serif;">
+                                    <strong>Lot: ${lotName}</strong>
+                                    ${ownerName ? '<br>Owner: ' + ownerName : ''}
+                                </div>
+                            `;
+                        }
+
+                        // Force open the popup at the center coordinates
+                        if (content) {
                             L.popup()
                               .setLatLng(centerPoint)
                               .setContent(content)
                               .openOn(map);
-                        } else {
-                            match.layer.openPopup(centerPoint);
                         }
                     }, delay);
                 });
-
                 resultsContainer.appendChild(div);
             });
         } else {
