@@ -530,10 +530,15 @@
                     // 3. Instantly center and zoom the map to that location
                     map.setView(centerPoint, match.zoomLevel);
 
-                    // 4. Open the popup right after the view updates
+                    // 4. Give the map and layer a brief moment to render before opening the popup
                     setTimeout(() => {
-                        match.layer.openPopup();
-                    }, 100);
+                        if (match.layer && map.hasLayer(match.layer._group || map)) {
+                            match.layer.openPopup();
+                        } else {
+                            // Fallback: force open at the center coordinates if layer reference lags
+                            L.popup().setLatLng(centerPoint).setContent(match.layer.getPopup().getContent()).openOn(map);
+                        }
+                    }, 350);
                 });
 
                 resultsContainer.appendChild(div);
