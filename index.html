@@ -538,36 +538,20 @@
                     // 3. Center and zoom the map
                     map.setView(centerPoint, match.zoomLevel);
 
-                    // 4. Allow extra render time for Lots (since polygon paths take longer to mount than plots)
+                    // 4. Give layers time to render (lots need a bit more time than plots)
                     const delay = match.isPlot ? 150 : 400;
 
                     setTimeout(() => {
-                        const props = match.feature ? match.feature.properties : {};
-                        let htmlContent = '';
-
-                        if (match.isPlot) {
-                            htmlContent = `
-                                <div style="font-family: 'Libre Baskerville', serif;">
-                                    <strong>${props.Name || props.Deceased || 'Burial Record'}</strong><br>
-                                    Lot: ${props.Lot || 'N/A'} | Plot: ${props.Plot || 'N/A'}<br>
-                                    ${props.Birth ? 'Birth: ' + props.Birth + '<br>' : ''}
-                                    ${props.Death ? 'Death: ' + props.Death + '<br>' : ''}
-                                </div>
-                            `;
+                        // Use your layer's original popup content, forcing it open at the center coordinates
+                        if (match.layer.getPopup && match.layer.getPopup()) {
+                            const content = match.layer.getPopup().getContent();
+                            L.popup()
+                              .setLatLng(centerPoint)
+                              .setContent(content)
+                              .openOn(map);
                         } else {
-                            htmlContent = `
-                                <div style="font-family: 'Libre Baskerville', serif;">
-                                    <strong>Lot ${props.LotNumber || props.Lot || 'Details'}</strong><br>
-                                    ${props.Owner ? 'Owner: ' + props.Owner : 'Lot Information'}
-                                </div>
-                            `;
+                            match.layer.openPopup(centerPoint);
                         }
-
-                        // Force open the popup at the exact center coordinates
-                        L.popup()
-                          .setLatLng(centerPoint)
-                          .setContent(htmlContent)
-                          .openOn(map);
                     }, delay);
                 });
 
