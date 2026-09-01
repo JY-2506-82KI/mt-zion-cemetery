@@ -516,29 +516,40 @@
                     searchInput.value = '';
                     resultsContainer.style.display = 'none';
 
-                    // 1. Ensure plots layer is visible if a plot was selected
+                    if (!match.layer) return;
+
+                    // 1. Ensure the correct parent layer group is active on the map
                     if (match.isPlot) {
                         document.getElementById('toggle-plots').checked = true;
                         if (!map.hasLayer(plotsLayerGroup)) {
                             map.addLayer(plotsLayerGroup);
                         }
+                    } else {
+                        document.getElementById('toggle-lots').checked = true;
+                        if (lotsLayer && !map.hasLayer(lotsLayer)) {
+                            map.addLayer(lotsLayer);
+                        }
                     }
 
                     // 2. Get the exact center coordinates of the polygon
-                    const centerPoint = match.layer.getBounds().getCenter();
+                    const bounds = match.layer.getBounds();
+                    const centerPoint = bounds.getCenter();
 
-                    // 3. Instantly center and zoom the map to that location
+                    // 3. Center and zoom the map
                     map.setView(centerPoint, match.zoomLevel);
 
-                    // 4. Give the map and layer a brief moment to render before opening the popup
+                    // 4. Open the popup by explicitly passing the coordinates to the polygon layer
                     setTimeout(() => {
-                        if (match.layer && map.hasLayer(match.layer._group || map)) {
-                            match.layer.openPopup();
-                        } else {
-                            // Fallback: force open at the center coordinates if layer reference lags
-                            L.popup().setLatLng(centerPoint).setContent(match.layer.getPopup().getContent()).openOn(map);
+                        try {
+                            match.layer.openPopup(centerPoint);
+                        } catch (err) {
+                            // Fallback: force open a popup at the center if layer reference lags
+                            const content = match.layer.getPopup() ? match.layer.getPopup().getContent() : '';
+                            if (content) {
+                                L.popup().setLatLng(centerPoint).setContent(content).openOn(map);
+                            }
                         }
-                    }, 350);
+                    }, 250);
                 });
 
                 resultsContainer.appendChild(div);
